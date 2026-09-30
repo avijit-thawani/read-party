@@ -161,9 +161,13 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     } else {
       upgradeConfig();
       const status = await LocalFileManager.getPermissionStatus();
+      // ReadParty: suppress the first-run "Never lose your data" local-folder
+      // promo. Browser storage is the default and is all we need for the
+      // hosted party flow. Re-auth prompts below still fire for users who
+      // explicitly opted into local storage.
       if (
-        !ConfigService.getReaderConfig("isUseLocal") &&
-        LocalFileManager.isSupported()
+        ConfigService.getReaderConfig("isUseLocal") === "yes" &&
+        !status.directoryName
       ) {
         this.props.handleLocalFileDialog(true);
       } else if (
@@ -280,6 +284,11 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     }
   }
   handleOpenLastReadBook = async () => {
+    // On web, always land on the library instead of auto-reopening the last
+    // book (which otherwise hijacks the home URL back into the reader).
+    if (!isElectron) {
+      return;
+    }
     let filePath = "";
     //open book when app start
     if (isElectron) {

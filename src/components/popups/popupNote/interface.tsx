@@ -2,6 +2,7 @@ import BookModel from "../../../models/Book";
 import HtmlBook from "../../../models/HtmlBook";
 import NoteModel from "../../../models/Note";
 import { HighlightValue } from "../../../utils/common";
+import { RemoteNote } from "../../../utils/sync/roomNotes";
 export interface PopupNoteProps {
   currentBook: BookModel;
 
@@ -23,4 +24,7 @@ export interface PopupNoteState {
   tag: string[];
   text: string;
   note: NoteModel | null;
+  // Set when the clicked highlight belongs to a ReadParty partner
+  // (read-only view with attribution).
+  remoteNote: RemoteNote | null;
 }

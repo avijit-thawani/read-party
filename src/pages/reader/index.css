@@ -151,6 +151,13 @@
   transition: transform 0.5s ease;
   z-index: 15;
 }
+/* Mobile: tap outside an open TOC/settings drawer to dismiss it. */
+.mobile-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 14;
+  background: rgba(0, 0, 0, 0.15);
+}
 .navigation-panel-container {
   width: 299px;
   height: 100vh;

@@ -30,11 +30,13 @@ import { ocrTesseractLangList } from "../../constants/dropdownList";
 import DatabaseService from "../../utils/storage/databaseService";
 import { getOcrResult } from "../../utils/request/reader";
 import { BookHelper } from "../../assets/lib/kookit.min";
+import roomNotes from "../../utils/sync/roomNotes";
 declare var window: any;
 let lock = false; //prevent from clicking too fasts
 
 class Viewer extends React.Component<ViewerProps, ViewerState> {
   private resizeHandler: (() => void) | null = null;
+  private unsubRoomNotes: (() => void) | null = null;
   lock: boolean;
   constructor(props: ViewerProps) {
     super(props);
@@ -100,11 +102,37 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       }
     });
     window.addEventListener("resize", this.resizeHandler);
+    // ReadParty: re-draw highlights when a partner adds/edits/deletes a
+    // shared note so it appears live without a page turn.
+    let prevRemoteKeys = new Set<string>();
+    this.unsubRoomNotes = roomNotes.subscribe(() => {
+      if (!this.state.rendition) return;
+      // Explicitly remove overlays for remote notes that were deleted
+      // (renderHighlighters only draws, it doesn't clear stale ones).
+      const currentKeys = new Set(
+        roomNotes.getRemoteNotes().map((r) => r.noteKey)
+      );
+      prevRemoteKeys.forEach((key) => {
+        if (!currentKeys.has(key)) {
+          try {
+            this.state.rendition.removeOneNote(key, this.state.chapterDocIndex);
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      });
+      prevRemoteKeys = currentKeys;
+      this.handleHighlight(this.state.rendition);
+    });
   }
   componentWillUnmount() {
     if (this.resizeHandler) {
       window.removeEventListener("resize", this.resizeHandler);
       this.resizeHandler = null;
+    }
+    if (this.unsubRoomNotes) {
+      this.unsubRoomNotes();
+      this.unsubRoomNotes = null;
     }
   }
   async UNSAFE_componentWillReceiveProps(nextProps: ViewerProps) {
@@ -133,6 +161,13 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       "notes"
     );
     if (!highlighters) return;
+    // ReadParty: merge in partners' shared notes (remapped onto this
+    // device's bookKey; empty when not in a party).
+    let remoteNotes = roomNotes.getRemoteNotes().map((r) => ({
+      ...r.payload,
+      bookKey: this.props.currentBook.key,
+    }));
+    highlighters = highlighters.concat(remoteNotes);
     let highlightersByChapter = highlighters.filter((item: Note) => {
       let cfi = JSON.parse(item.cfi);
       if (cfi.cfi) {

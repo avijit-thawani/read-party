@@ -5,6 +5,7 @@ import {
   NoteSyncManager,
 } from "../../assets/lib/kookit-extra-browser.min";
 import { getIframeDoc } from "./docUtil";
+import roomNotes from "../sync/roomNotes";
 
 export interface DigestParams {
   currentBook: any;
@@ -84,5 +85,7 @@ export async function createHighlight(params: DigestParams): Promise<void> {
   await htmlBook.rendition.createOneNote(highlight, onNoteClick ?? (() => {}));
   let noteSyncManager = new NoteSyncManager(DatabaseService, ConfigService);
   noteSyncManager.syncNote(highlight, bookKey);
+  // ReadParty: share with the room (no-op when not in a party)
+  roomNotes.publishNote(highlight);
   onSuccess?.();
 }

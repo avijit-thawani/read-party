@@ -26,6 +26,7 @@ import {
 } from "../../utils/reader/discordRPC";
 import SupportDialog from "../../components/dialogs/supportDialog";
 import { READING_PANEL_TOGGLE_EVENT } from "../../utils/reader/mouseEvent";
+import ReadParty from "../../containers/readParty";
 
 let lock = false; //prevent from clicking too fasts
 let throttleTime = 200;
@@ -98,6 +99,21 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
   );
   constructor(props: ReaderProps) {
     super(props);
+    // Mobile-web first-run defaults: Koodo has no responsive reader layout, so
+    // seed sensible touch defaults (only when the user hasn't set them yet).
+    if (!isElectron && document.body.clientWidth <= 600) {
+      if (!ConfigService.getReaderConfig("fontSize")) {
+        ConfigService.setReaderConfig("fontSize", "15");
+      }
+      if (!ConfigService.getReaderConfig("isTouch")) {
+        ConfigService.setReaderConfig("isTouch", "yes");
+      }
+      // Koodo defaults to the "double" (two-page) spread, which is unusable on a
+      // phone-width screen; default mobile web to the single-page layout.
+      if (!ConfigService.getReaderConfig("readerMode")) {
+        ConfigService.setReaderConfig("readerMode", "single");
+      }
+    }
     this.state = {
       isOpenTopPanel: false,
       isOpenBottomPanel: false,
@@ -259,15 +275,20 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
   handleEnterReader = (position: string) => {
     this.cancelEnterReader(position);
     this.cancelLeaveReader(position);
+    // On a narrow screen the left TOC and right settings drawers overlap, so
+    // keep them mutually exclusive — opening one closes the other.
+    const isMobileWidth = !isElectron && document.body.clientWidth <= 600;
     switch (position) {
       case "right":
         this.setState({
           isOpenRightPanel: true,
+          isOpenLeftPanel: isMobileWidth ? false : this.state.isOpenLeftPanel,
         });
         break;
       case "left":
         this.setState({
           isOpenLeftPanel: true,
+          isOpenRightPanel: isMobileWidth ? false : this.state.isOpenRightPanel,
         });
         break;
       case "top":
@@ -574,10 +595,22 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
             <div
               className="reader-setting-icon-container"
               onClick={() => {
-                this.handleEnterReader("left");
-                this.handleEnterReader("right");
-                this.handleEnterReader("bottom");
-                this.handleEnterReader("top");
+                const isMobileWidth =
+                  !isElectron && document.body.clientWidth <= 600;
+                if (isMobileWidth) {
+                  // On mobile the invisible edge triggers aren't discoverable,
+                  // so the "options" icon opens the settings drawer (font, theme,
+                  // page mode) plus the top toolbar (exit/bookmark/fullscreen).
+                  // handleEnterReader("right") closes the left TOC so the two
+                  // side drawers never overlap.
+                  this.handleEnterReader("right");
+                  this.handleEnterReader("top");
+                } else {
+                  this.handleEnterReader("left");
+                  this.handleEnterReader("right");
+                  this.handleEnterReader("bottom");
+                  this.handleEnterReader("top");
+                }
               }}
             >
               <span className="icon-grid reader-setting-icon"></span>
@@ -676,6 +709,19 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
           <span className="icon-grid panel-icon"></span>
         </div>
 
+        {!isElectron &&
+          document.body.clientWidth <= 600 &&
+          (this.state.isOpenLeftPanel || this.state.isOpenRightPanel) && (
+            <div
+              className="mobile-panel-scrim"
+              onClick={() =>
+                this.setState({
+                  isOpenLeftPanel: false,
+                  isOpenRightPanel: false,
+                })
+              }
+            />
+          )}
         <div
           className="setting-panel-container"
           onMouseEnter={() => {
@@ -786,6 +832,14 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
         </div>
 
         {this.props.currentBook.key && <Viewer {...(renditionProps as any)} />}
+        {this.props.currentBook.key && (
+          <ReadParty
+            {...({
+              htmlBook: this.props.htmlBook,
+              currentBook: this.props.currentBook,
+            } as any)}
+          />
+        )}
         {this.props.isConvertOpen && <ConvertDialog />}
         {this.props.isPdfCropOpen && <PdfCropDialog />}
         <SupportDialog />
