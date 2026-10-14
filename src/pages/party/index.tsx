@@ -128,7 +128,9 @@ const Party: React.FC = () => {
           setImportError("Couldn't fetch the shared book. Please retry.");
       })
       .finally(() => {
-        if (!cancelled) setImporting(false);
+        // Not gated on `cancelled`: loadBooks() flips inviteBookMissing, which
+        // cancels this effect before it settles and would strand the spinner.
+        setImporting(false);
       });
     return () => {
       cancelled = true;
@@ -146,6 +148,14 @@ const Party: React.FC = () => {
       `&party=${encodeURIComponent(roomCode)}`;
     window.location.href = url;
   };
+
+  // Invitees should land in the room, not on a form: until the reader opens
+  // they aren't in the channel and the host sees nobody.
+  useEffect(() => {
+    if (!inviteMd5 || !getParam("room") || importing) return;
+    if (selectedBook && selectedBook.md5 === inviteMd5) startReading();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteMd5, selectedBook, importing]);
 
   const inviteLink = useMemo(() => {
     if (!roomCode) return "";

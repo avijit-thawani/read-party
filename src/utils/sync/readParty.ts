@@ -68,6 +68,7 @@ const HEARTBEAT_MS = 3000;
 // goes silent to avoid burning quota on a forgotten/backgrounded session. We
 // stay subscribed (still receive others) and resume on the next flip.
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const MEMBER_ONLINE_WINDOW_MS = 15 * 1000;
 
 const randomId = (): string => {
   try {
@@ -121,6 +122,8 @@ class ReadPartyManager {
   private lastDbUpsertAt = 0;
   private dbUpsertTimer: any = null;
   private heartbeatTimer: any = null;
+  private reconnectTimer: any = null;
+  private lifecycleInstalled = false;
   private lastActivityAt = Date.now();
   // Solo mode: when nobody else is online we skip broadcast sends and presence
   // re-tracks (realtime messages) and keep only the free, throttled DB upsert.
@@ -338,6 +341,9 @@ class ReadPartyManager {
     channel.on("presence", { event: "sync" }, () => {
       this.updateParticipantsFromPresence();
     });
+    channel.on("presence", { event: "join" }, () => {
+      this.updateParticipantsFromPresence();
+    });
     channel.on("presence", { event: "leave" }, () => {
       this.updateParticipantsFromPresence();
     });
@@ -398,6 +404,17 @@ class ReadPartyManager {
       channel.on("presence", { event: "sync" }, decide);
 
       channel.subscribe((subStatus) => {
+        if (
+          settled &&
+          this.channel === channel &&
+          this.status === "joined" &&
+          (subStatus === "CHANNEL_ERROR" ||
+            subStatus === "TIMED_OUT" ||
+            subStatus === "CLOSED")
+        ) {
+          this.scheduleReconnect();
+          return;
+        }
         if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") {
           this.status = "error";
           this.emit();
@@ -428,6 +445,7 @@ class ReadPartyManager {
     this.registerMembershipDb();
     this.pullParticipantsFromDb();
     this.startHeartbeat();
+    this.installLifecycleListeners();
     this.emit();
   }
 
@@ -709,6 +727,33 @@ class ReadPartyManager {
   private async pullParticipantsFromDb() {
     if (!this.roomCode) return;
     try {
+      const { data: members } = await getSupabase()
+        .from("room_members")
+        .select("user_id, display_name, emoji, last_seen")
+        .eq("room_code", this.roomCode)
+        .neq("user_id", this.userId);
+      if (members) {
+        const presenceKeys = new Set(this.otherPresenceKeys());
+        members.forEach((m: any) => {
+          const seen = m.last_seen ? Date.parse(m.last_seen) : 0;
+          const recent = Date.now() - seen < MEMBER_ONLINE_WINDOW_MS;
+          const known = this.participants.get(m.user_id);
+          if (!known && !recent) return;
+          this.applyParticipantUpdate(
+            {
+              userId: m.user_id,
+              displayName: m.display_name,
+              emoji: m.emoji,
+              online: presenceKeys.has(m.user_id) || recent,
+            },
+            "members"
+          );
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    try {
       const { data } = await getSupabase()
         .from("positions")
         .select("user_id, position_json, updated_at")
@@ -741,6 +786,9 @@ class ReadPartyManager {
       // costs ~nothing. We resume automatically on the next flip.
       const hidden = typeof document !== "undefined" && document.hidden;
       const idle = Date.now() - this.lastActivityAt > IDLE_TIMEOUT_MS;
+      // Reads stay on while idle so a reader waiting on the first page still
+      // sees people arrive; only skip them for hidden tabs.
+      if (!hidden) this.pullParticipantsFromDb();
       if (hidden || idle) return;
       // Keep membership fresh (a DB write, not a realtime message).
       getSupabase()
@@ -752,10 +800,6 @@ class ReadPartyManager {
           () => {},
           () => {}
         );
-      // Reconcile everyone from the authoritative DB rows (a read, not a
-      // realtime message). Live flips are delivered by broadcast + postgres
-      // change-events, so we no longer re-broadcast an unchanged position.
-      this.pullParticipantsFromDb();
     }, HEARTBEAT_MS);
   }
 
@@ -766,19 +810,74 @@ class ReadPartyManager {
     }
   }
 
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.reconnect();
+    }, 1000);
+  }
+
+  // Rejoin the same room with the same identity. Mobile browsers silently
+  // kill the realtime socket when the tab is backgrounded (e.g. switching
+  // apps to send the invite), so this runs on return-to-tab and on channel
+  // errors.
+  private async reconnect() {
+    const code = this.roomCode;
+    if (!code || this.status !== "joined") return;
+    const known = this.participants;
+    const bookMd5 = this.bookMd5 || undefined;
+    const bookTitle = this.bookTitle || undefined;
+    this.status = "connecting";
+    await this.leave();
+    await this.join({ roomCode: code, bookMd5, bookTitle });
+    known.forEach((p, key) => {
+      if (!this.participants.has(key)) {
+        this.participants.set(key, { ...p, online: false });
+      }
+    });
+    this.emit();
+  }
+
+  private handleVisible = () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    if (!this.channel || this.status !== "joined") return;
+    this.lastActivityAt = Date.now();
+    if ((this.channel as any).state !== "joined") {
+      this.scheduleReconnect();
+      return;
+    }
+    this.trackPresence();
+    this.updateParticipantsFromPresence();
+    this.pullParticipantsFromDb();
+  };
+
+  private installLifecycleListeners() {
+    if (this.lifecycleInstalled || typeof window === "undefined") return;
+    this.lifecycleInstalled = true;
+    document.addEventListener("visibilitychange", this.handleVisible);
+    window.addEventListener("focus", this.handleVisible);
+    window.addEventListener("online", this.handleVisible);
+  }
+
   async leave() {
     this.stopHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.dbUpsertTimer) {
       clearTimeout(this.dbUpsertTimer);
       this.dbUpsertTimer = null;
     }
     if (this.channel) {
+      const channel = this.channel;
+      this.channel = null;
       try {
-        await this.channel.unsubscribe();
+        await channel.unsubscribe();
       } catch (e) {
         /* ignore */
       }
-      this.channel = null;
     }
     this.status = "idle";
     this.roomCode = null;
