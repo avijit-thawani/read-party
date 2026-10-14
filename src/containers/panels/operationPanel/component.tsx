@@ -104,7 +104,13 @@ class OperationPanel extends React.Component<
       }
     } else {
       ConfigService.setReaderConfig("isFinishWebReading", "yes");
+      // On web the reader is usually the same tab (window.close() is a no-op
+      // unless the tab was script-opened), so fall back to the library.
+      const home = window.location.href.split("#")[0] + "#/manager/home";
       window.close();
+      setTimeout(() => {
+        if (!window.closed) window.location.href = home;
+      }, 150);
     }
   }
   handleAddBookmark = async () => {

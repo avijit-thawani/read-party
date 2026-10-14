@@ -15,17 +15,28 @@ import {
 import DatabaseService from "../../../utils/storage/databaseService";
 import ColorOption from "../../colorOption";
 import copy from "copy-text-to-clipboard";
+import roomNotes from "../../../utils/sync/roomNotes";
 class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
   highlightUtil: any;
   constructor(props: PopupNoteProps) {
     super(props);
     this.highlightUtil = new HighlightUtil(ConfigService);
-    this.state = { tag: [], text: "", note: null };
+    this.state = { tag: [], text: "", note: null, remoteNote: null };
   }
   async componentDidMount() {
     let textArea: any = document.querySelector(".editor-box");
     textArea && textArea.focus();
     if (this.props.noteKey) {
+      // ReadParty: a partner's shared highlight is read-only.
+      let remote = roomNotes.getRemoteNoteByKey(this.props.noteKey);
+      if (remote) {
+        this.setState({
+          remoteNote: remote,
+          text: remote.payload.text || "",
+          tag: remote.payload.tag || [],
+        });
+        return;
+      }
       let note: Note = await DatabaseService.getRecord(
         this.props.noteKey,
         "notes"
@@ -89,6 +100,8 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
         this.highlightUtil.formatHighlightValue(this.props.highlight) ||
         newNote.color;
       DatabaseService.updateRecord(newNote, "notes").then(() => {
+        // ReadParty: share the edit with the room (no-op outside a party)
+        roomNotes.publishNote(newNote);
         this.props.handleOpenMenu(false);
         this.props.handleFetchNotes();
         this.props.handleMenuMode("");
@@ -174,13 +187,24 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
           ConfigService
         );
         noteSyncManager.syncNote(note, bookKey);
+        // ReadParty: share with the room (no-op outside a party)
+        roomNotes.publishNote(note);
       });
     }
   }
   handleUpdateHighlight = () => {};
+  // Dismiss without touching data — used by the read-only remote view.
+  handleDismiss = () => {
+    this.props.handleOpenMenu(false);
+    this.props.handleMenuMode("");
+    this.props.handleNoteKey("");
+    this.props.handleShowPopupNote(false);
+  };
   handleClose = () => {
     if (this.props.noteKey) {
       DatabaseService.deleteRecord(this.props.noteKey, "notes").then(() => {
+        // ReadParty: tombstone in the room too (no-op outside a party)
+        roomNotes.deleteNote(this.props.noteKey);
         toast.success(this.props.t("Deletion successful"));
         this.props.handleMenuMode("");
         this.props.handleFetchNotes();
@@ -209,6 +233,58 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
       noteItem: this.state.note,
     };
     let note = this.state.note;
+
+    // Read-only view for a ReadParty partner's shared note/highlight.
+    if (this.state.remoteNote) {
+      const remote = this.state.remoteNote;
+      return (
+        <div className="note-editor">
+          <div className="note-original-text">{this.state.text}</div>
+          <div
+            style={{
+              margin: "10px 25px",
+              fontSize: "14px",
+              opacity: 0.75,
+              fontWeight: 500,
+            }}
+          >
+            {remote.authorEmoji} {remote.authorName}
+          </div>
+          {remote.payload.notes ? (
+            <div
+              style={{
+                margin: "0 25px",
+                fontSize: "15px",
+                whiteSpace: "pre-wrap",
+                maxHeight: "40%",
+                overflowY: "auto",
+              }}
+            >
+              {remote.payload.notes}
+            </div>
+          ) : null}
+          <div className="note-button-container">
+            <span
+              className="book-manage-title"
+              onClick={() => {
+                copy(this.state.text);
+                toast.success(this.props.t("Copying successful"));
+              }}
+            >
+              <Trans>Copy quotes</Trans>
+            </span>
+            <span
+              className="book-manage-title"
+              onClick={() => {
+                this.handleDismiss();
+              }}
+            >
+              <Trans>Cancel</Trans>
+            </span>
+          </div>
+        </div>
+      );
+    }
 
     const renderNoteEditor = () => {
       return (

@@ -30,6 +30,7 @@ import {
 } from "../../utils/reader/bookDrag";
 import Footer from "../../components/footer";
 import ProtectionOverlay from "../../components/protection";
+import ReadPartyGuide from "../../components/readPartyGuide";
 class Manager extends React.Component<ManagerProps, ManagerState> {
   timer!: NodeJS.Timeout;
   private isDraggingFromApp = false;
@@ -323,6 +324,7 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
           </Switch>
         )}
         <Footer />
+        <ReadPartyGuide />
       </div>
     );
   }

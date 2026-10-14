@@ -1,3 +1,27 @@
+<h1 align="center">ReadParty</h1>
+
+<p align="center">Read the same book together, in sync, from different devices.</p>
+
+<p align="center"><a href="docs/media/readparty-demo.mp4"><img src="docs/media/readparty-demo.webp" width="360" alt="ReadParty demo video, playing silently with captions"></a><br><sub><a href="docs/media/readparty-demo.mp4">Watch with sound</a> · book: <i>Pride and Prejudice</i>, Project Gutenberg eBook #42671</sub></p>
+
+<p align="center"><b><a href="https://readparty-app.netlify.app/#/party">readparty-app.netlify.app</a></b></p>
+
+ReadParty adds a watch-party mode to [Koodo Reader](https://github.com/koodo-reader/koodo-reader), an open-source
+EPUB reader. It was built for a long-distance reading date: each person reads the same book on their own screen,
+sees the others' chapter and progress change as they turn pages, and can tap **Join** to jump to someone's page.
+
+- Rooms hold up to 8 readers, each with a name and an emoji, and are joined with a 3-character code or an invite link.
+- Highlights and notes made in a room appear in everyone's copy, attributed to the reader who made them.
+- Positions are synced as a place in the text rather than in pixels, so different fonts and screen sizes land on the same passage.
+- There is no account: each browser gets a random id. The backend is Supabase (Postgres, Realtime and Storage).
+
+The feature is a set of new files under `src/utils/sync/`, `src/containers/readParty/`, `src/components/readPartyGuide/`
+and `src/pages/party/`, plus small edits to Koodo's own files, so upstream changes can still be merged.
+[`context.md`](context.md) explains the design, the backend and how to run it locally. Like Koodo Reader, this fork
+is licensed under the AGPL-3.0.
+
+---
+
 <div align="left">
 
 [简体中文](https://github.com/koodo-reader/koodo-reader/blob/master/README_cn.md) | [हिंदी](https://github.com/koodo-reader/koodo-reader/blob/master/README_hi.md)

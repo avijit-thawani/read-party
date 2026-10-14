@@ -1,0 +1,151 @@
+.party-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1c1e22 0%, #2c2f31 100%);
+  padding: 20px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.party-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px;
+  color: #f5f5f7;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.party-title {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.party-subtitle {
+  margin: 0 0 20px;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.party-label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  margin: 14px 0 6px;
+}
+
+.party-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.party-input {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 11px 12px;
+  color: #f5f5f7;
+  font-size: 14px;
+  outline: none;
+}
+
+.party-input:focus {
+  border-color: #0a84ff;
+}
+
+.party-code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+}
+
+select.party-input {
+  cursor: pointer;
+}
+
+.party-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  white-space: nowrap;
+  transition: filter 0.15s ease;
+}
+
+.party-btn:hover {
+  filter: brightness(1.1);
+}
+
+.party-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.party-btn-primary {
+  background: #0a84ff;
+  width: 100%;
+  margin-top: 20px;
+  padding: 13px;
+  font-size: 15px;
+}
+
+.party-btn-secondary {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.party-empty {
+  font-size: 13px;
+  opacity: 0.7;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.party-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 159, 10, 0.15);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+  color: #ffd60a;
+  font-size: 13px;
+}
+
+.party-invite {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.party-hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 8px 0 0;
+}
+
+.party-back {
+  margin-top: 20px;
+  font-size: 13px;
+  opacity: 0.7;
+  cursor: pointer;
+  text-align: center;
+}
+
+.party-back:hover {
+  opacity: 1;
+}

@@ -240,7 +240,11 @@ const handleShortcut = (
         }
       } else {
         ConfigService.setReaderConfig("isFinishWebReading", "yes");
+        const home = window.location.href.split("#")[0] + "#/manager/home";
         window.close();
+        setTimeout(() => {
+          if (!window.closed) window.location.href = home;
+        }, 150);
       }
     }
   }

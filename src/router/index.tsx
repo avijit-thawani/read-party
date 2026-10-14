@@ -5,6 +5,7 @@ import Login from "../pages/login";
 import Stats from "../pages/stats";
 import HtmlReader from "../pages/reader";
 import _Redirect from "../pages/redirect";
+import Party from "../pages/party";
 import i18n from "../i18n";
 import { ConfigService } from "../assets/lib/kookit-extra-browser.min";
 
@@ -146,6 +147,7 @@ const Router = () => {
     <HashRouter>
       <Switch>
         <Route component={Manager} path="/manager" />
+        <Route component={Party} path="/party" />
         <Route component={Login} path="/login" />
         <Route component={Stats} path="/stats" />
         <Route component={HtmlReader} path="/epub" />

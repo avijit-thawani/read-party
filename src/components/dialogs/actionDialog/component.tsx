@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import MoreAction from "../moreAction";
 import MarkAction from "../markAction";
 import { ConfigService } from "../../../assets/lib/kookit-extra-browser.min";
+import { uploadHostedBook } from "../../../utils/sync/hostedBooks";
+import { generateRoomCode } from "../../../utils/sync/roomCode";
 declare var window: any;
 class ActionDialog extends React.Component<
   ActionDialogProps,
@@ -81,6 +83,30 @@ class ActionDialog extends React.Component<
     this.props.handleActionDialog(false);
     this.props.handleFetchBooks();
   };
+  handleReadTogether = () => {
+    const book = this.props.currentBook;
+    const ref = book.format.toLowerCase();
+    const code = generateRoomCode();
+    const origin = window.location.href.split("#")[0];
+    const readerUrl =
+      `${origin}#/${ref}/${book.key}` +
+      `?title=${encodeURIComponent(book.name)}` +
+      `&file=${book.key}` +
+      `&party=${code}`;
+    const inviteUrl = `${origin}#/party?room=${code}&md5=${book.md5}`;
+    // Upload so the partner's client can auto-download the same file (Phase 2).
+    uploadHostedBook(book);
+    try {
+      navigator.clipboard.writeText(inviteUrl);
+    } catch (e) {
+      /* ignore */
+    }
+    toast.success(
+      this.props.t("Invite link copied \u2014 share it with your partner")
+    );
+    this.props.handleActionDialog(false);
+    window.open(readerUrl);
+  };
   handleMoreAction = (isShow: boolean) => {
     this.setState({ isShowExport: isShow });
   };
@@ -146,6 +172,17 @@ class ActionDialog extends React.Component<
           style={{ left: this.props.left, top: this.props.top }}
         >
           <div className="action-dialog-actions-container">
+            <div
+              className="action-dialog-add"
+              onClick={() => {
+                this.handleReadTogether();
+              }}
+            >
+              <span className="icon-share view-icon"></span>
+              <p className="action-name">
+                <Trans>Read together</Trans>
+              </p>
+            </div>
             <div
               className="action-dialog-add"
               onClick={() => {
